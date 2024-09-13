@@ -9,6 +9,7 @@ from app.auth.forms import LoginForm, RegistrationForm, \
     ResetPasswordRequestForm, ResetPasswordForm
 from app.models import User
 from app.auth.email import send_password_reset_email
+import pdb
 
 
 @bp.route('/login', methods=['GET', 'POST'])
@@ -16,6 +17,7 @@ def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))
     form = LoginForm()
+    print(form.data)
     if form.validate_on_submit():
         user = db.session.scalar(
             sa.select(User).where(User.username == form.username.data))
@@ -28,7 +30,6 @@ def login():
             next_page = url_for('main.index')
         return redirect(next_page)
     return render_template('auth/login.html', title=_('Sign In'), form=form)
-
 
 @bp.route('/logout')
 def logout():
