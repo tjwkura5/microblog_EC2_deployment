@@ -31,18 +31,25 @@ pipeline {
         }
         stage('OWASP FS SCAN') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --purge --log dependency-check.log --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c', odcInstallation: 'DP-Check'
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
       stage ('Clean') {
             steps {
                 sh '''#!/bin/bash
-                if [[ $(ps aux | grep -i "gunicorn" | tr -s " " | head -n 1 | cut -d " " -f 2) != 0 ]]
-                then
-                ps aux | grep -i "gunicorn" | tr -s " " | head -n 1 | cut -d " " -f 2 > pid.txt
-                kill $(cat pid.txt)
-                exit 0
+                # Find the process ID of gunicorn using pgrep
+                pid=$(pgrep -f "gunicorn")
+
+                # Check if PID is found and is valid (non-empty)
+                if [[ -n "$pid" && "$pid" -gt 0 ]]; then
+                    echo "$pid" > pid.txt
+                    kill "$pid"
+                    echo "Killed gunicorn process with PID $pid"
+                    exit 0
+                else
+                    echo "No gunicorn process found to kill"
+                    exit 1
                 fi
                 '''
             }
@@ -50,11 +57,8 @@ pipeline {
       stage ('Deploy') {
             steps {
                 sh '''#!/bin/bash
-                # Restart Nginx to ensure it picks up the latest configuration
-                sudo systemctl restart nginx
-
                 # Start Flask application
-                gunicorn -b :5000 microblog:app &
+                gunicorn -b :5000 -w 4 microblog:app
                 '''
             }
         }
