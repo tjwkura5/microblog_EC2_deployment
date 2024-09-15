@@ -9,7 +9,7 @@ pipeline {
                 pip install pip --upgrade
                 pip install -r requirements.txt
                 pip install gunicorn pymysql cryptography
-                FLASK_APP=microblog.py
+                export FLASK_APP=microblog.py
                 flask translate compile
                 flask db upgrade
                 '''
@@ -56,6 +56,7 @@ pipeline {
             steps {
                 sh '''#!/bin/bash
                 # Start Flask application
+                source venv/bin/activate
                 gunicorn -b :5000 -w 4 microblog:app
                 '''
             }
