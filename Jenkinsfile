@@ -31,7 +31,7 @@ pipeline {
         }
         stage('OWASP FS SCAN') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c', odcInstallation: 'DP-Check'
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --purge --log dependency-check.log --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
@@ -46,10 +46,8 @@ pipeline {
                     echo "$pid" > pid.txt
                     kill "$pid"
                     echo "Killed gunicorn process with PID $pid"
-                    exit 0
                 else
                     echo "No gunicorn process found to kill"
-                    exit 1
                 fi
                 '''
             }
