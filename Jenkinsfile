@@ -31,17 +31,7 @@ pipeline {
         }
         stage('OWASP FS SCAN') {
             steps {
-                script {
-                    // Run Dependency-Check in the background
-                    sh 'nohup dependencyCheck --scan ./ --disableYarnAudit --disableNodeAudit --purge --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c > dep-check.log 2>&1 &'
-                    
-                    // Wait for the process to complete 
-                    sleep 180 
-
-                    // Check if the process is finished
-                    sh 'tail -f dep-check.log'
-                }
-                // Now publish the results
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --purge --log dependency-check.log --nvdApiKey 835c57e7-963c-467b-8458-55db3aaa6f8c', odcInstallation: 'DP-Check'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
