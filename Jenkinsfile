@@ -59,6 +59,7 @@ pipeline {
                 source venv/bin/activate
                 pkill gunicorn || true
                 nohup gunicorn -b :5000 -w 4 microblog:app > gunicorn.log 2>&1 &
+                cat gunicorn.log
                 disown
                 sleep 15
                 if pgrep -f gunicorn > /dev/null; then
