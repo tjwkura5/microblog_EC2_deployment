@@ -8,7 +8,7 @@ pipeline {
                 source venv/bin/activate
                 pip install pip --upgrade
                 pip install -r requirements.txt
-                pip install gunicorn pymysql cryptography
+                pip install gunicorn pymysql cryptography prometheus_flask_exporter
                 export FLASK_APP=microblog.py
                 flask translate compile
                 flask db upgrade
