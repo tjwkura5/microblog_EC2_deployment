@@ -59,15 +59,15 @@ pipeline {
                 source venv/bin/activate
 
                 # Restart the Gunicorn service
-                sudo systemctl restart gunicorn
+                sudo /bin/systemctl restart gunicorn
 
                 # Check the status of the service
-                if sudo systemctl is-active --quiet gunicorn; then
+                if sudo /bin/systemctl is-active --quiet gunicorn; then
                     echo "Gunicorn restarted successfully"
                 else
                     echo "Failed to restart Gunicorn"
                     # Print logs for debugging
-                    sudo journalctl -u gunicorn.service
+                    sudo /bin/journalctl -u gunicorn.service
                     exit 1
                 fi
                 '''
