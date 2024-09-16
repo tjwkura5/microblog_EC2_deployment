@@ -54,9 +54,9 @@ pipeline {
         }
       stage ('Deploy') {
             steps {
-                sh '''
+                sh '''#!/bin/bash
                 # Start Flask application
-                source /var/lib/jenkins/workspace/workload_3_main/venv/bin/activate
+                source venv/bin/activate
 
                 # Restart the Gunicorn service
                 sudo systemctl restart gunicorn
