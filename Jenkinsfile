@@ -52,25 +52,34 @@ pipeline {
                 '''
             }
         }
+    //   stage ('Deploy') {
+    //         steps {
+    //             sh '''#!/bin/bash
+    //             # Start Flask application
+    //             source venv/bin/activate
+    //             pkill gunicorn || true
+    //             nohup gunicorn -b :5000 -w 4 microblog:app > gunicorn.log 2>&1 &  # Start Gunicorn in the background with nohup
+    //             sleep 30  # Wait for Gunicorn to start
+
+    //             if pgrep -f gunicorn > /dev/null; then
+    //                 echo "Gunicorn started successfully"
+    //                 cat gunicorn.log
+    //                 disown  # Detach Gunicorn from the shell
+
+    //             else
+    //                 echo "Failed to start Gunicorn"
+    //                 cat gunicorn.log
+    //                 exit 1
+    //             fi
+    //             '''
+    //         }
+    //     }
       stage ('Deploy') {
             steps {
                 sh '''#!/bin/bash
                 # Start Flask application
                 source venv/bin/activate
-                pkill gunicorn || true
-                nohup gunicorn -b :5000 -w 4 microblog:app > gunicorn.log 2>&1 &  # Start Gunicorn in the background with nohup
-                sleep 30  # Wait for Gunicorn to start
-                
-                if pgrep -f gunicorn > /dev/null; then
-                    echo "Gunicorn started successfully"
-                    cat gunicorn.log
-                    disown  # Detach Gunicorn from the shell
-
-                else
-                    echo "Failed to start Gunicorn"
-                    cat gunicorn.log
-                    exit 1
-                fi
+                gunicorn -b :5000 -w 2 microblog:app
                 '''
             }
         }
