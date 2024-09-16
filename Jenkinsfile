@@ -59,11 +59,12 @@ pipeline {
                 source venv/bin/activate
                 pkill gunicorn || true
                 nohup gunicorn -b :5000 -w 4 microblog:app > gunicorn.log 2>&1 &
-                cat gunicorn.log
                 disown
-                sleep 15
+                sleep 30
                 if pgrep -f gunicorn > /dev/null; then
                     echo "Gunicorn started successfully"
+                    cat gunicorn.log
+
                 else
                     echo "Failed to start Gunicorn"
                     cat gunicorn.log
