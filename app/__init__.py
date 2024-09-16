@@ -2,7 +2,6 @@ import logging
 from logging.handlers import SMTPHandler, RotatingFileHandler
 import os
 from flask import Flask, request, current_app
-from prometheus_flask_exporter.multiprocess import GunicornPrometheusMetrics
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -14,10 +13,8 @@ from redis import Redis
 import rq
 from config import Config
 
-
 def get_locale():
     return request.accept_languages.best_match(current_app.config['LANGUAGES'])
-
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -32,10 +29,6 @@ babel = Babel()
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-
-    # Initialize Prometheus metrics exporter on a different port (e.g., 8000)
-    metrics = GunicornPrometheusMetrics.for_app_factory(create_app)
-    metrics.start_http_server(port=8000)  # Expose metrics on port 8000
 
     # Continue with the rest of your Flask app setup
     db.init_app(app)
