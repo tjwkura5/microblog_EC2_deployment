@@ -46,7 +46,7 @@ def test_users(client, auth_header):
     assert len(data['items']) > 0
     assert data['items'][0]['username'] == 'testuser1'
 
-def test_home(client, mock_user):
+def test_login(client, mock_user):
     # logging in the user
     login_data = {
         'username': mock_user.username,
@@ -56,10 +56,9 @@ def test_home(client, mock_user):
     }
     # Perform a POST request to the /login endpoint
     response = client.post('/auth/login', data=login_data, follow_redirects=True)
-    
-    # Check if the response redirects to the home page
     assert response.status_code == 200
-    # print(response.data)
+    assert b'<title>Sign In - Microblog</title>' in response.data
+
 
 
 
