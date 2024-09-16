@@ -34,9 +34,7 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
 
     # Initialize Prometheus metrics exporter on a different port (e.g., 8000)
-    metrics = GunicornPrometheusMetrics.for_app_factory(
-        app, path=None, export_defaults=True, group_by='endpoint'
-    )
+    metrics = GunicornPrometheusMetrics.for_app_factory(app)
     metrics.start_http_server(port=8000)  # Expose metrics on port 8000
 
     # Continue with the rest of your Flask app setup
