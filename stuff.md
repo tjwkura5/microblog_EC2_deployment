@@ -19,7 +19,7 @@ Create an Ubuntu EC2 instance (t3.micro) named "Jenkins". Be sure to configure t
 
 We are going to be doing something different this time for installing jenkins. Instead of installing jenkins manually we will be creating a script to do this for us.
 
-1. The first thing we want to do in our script is check if jenkins is already installed. We can use the dkpg command to list out all of the installed packages on our system and then pipe this over to our grep command to searches for the word "jenkins" in the list. The -q flag makes grep run in quiet mode. 
+1. The first thing we want to do in our script is check if jenkins is already installed. We can use the dkpg command to list out all of the installed packages on our system and then pipe this over to our grep command to search for the word "jenkins" in the list. The -q flag makes grep run in quiet mode. 
 
     ```
     if dpkg -l | grep -q jenkins; then
@@ -42,7 +42,7 @@ We are going to be doing something different this time for installing jenkins. I
         sudo systemctl status jenkins
     fi
     ```
-4. Ok if jenkins is not installed in the first place we will need to install it.
+If jenkins is not installed in the first place we will need to install it:
 
 5. Update System and Install Dependencies
 
@@ -84,14 +84,14 @@ If everything looks good then we should be able to move on. If you like to see t
 
 **Configure Application Server:**
 
-We should already have python, venv installed from running the jenkins_install script but lets make sure we have the correct verions set. 
+We should already have python and venv installed from running the jenkins_install script but lets make sure we have the correct verions set. 
 
 1. Run the following command to check the version.
 
     ```
     python3 --version
     ```
-2. If python Python 3.9 is not the default version you need to update the alternatives system: 
+2. If Python 3.9 is not the default version you need to update the alternatives system: 
 
     ```
     sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 2
@@ -125,7 +125,7 @@ Now that we have 'python3.9', 'python3.9-venv' and 'python3-pip' installed let's
     ```
     sudo apt update
     ```
-2. Install Nginx: Install Nginx with the following command:
+2. Install Nginx with the following command:
 
     ```
     sudo apt install nginx -y
@@ -147,12 +147,12 @@ The Nginx configuration file defines the default behavior of the Nginx web serve
     ```
     sudo systemctl start nginx
     ```
-5. Enable Nginx to Start at Boot: To ensure Nginx starts automatically when the server is rebooted, enable the service:
+5. To ensure Nginx starts automatically when the server is rebooted, enable the service:
 
     ```
     sudo systemctl enable nginx
     ```
-6. Check Nginx Status: You can check if Nginx is running with:
+6. You can check if Nginx is running with:
 
     ```
     sudo systemctl status nginx
@@ -211,7 +211,7 @@ This should be good for now. If you take a look at the test_app.py module in the
 
 Using an in-memory database removes the dependency on an actual database instance. Since in-memory databases like SQLite are created and run entirely in memory, they are much faster. Additionally, tests are isolated because each test run gets a fresh, empty database. This ensures that tests don’t interfere with one another.
 
-For more details, feel free to explore the test_app.py module. Otherwise, go through the following step to run the test we create together:
+For more details, feel free to explore the test_app.py module. Otherwise, go through the following step to run the test we created together:
 
 1. Clone your GH repository to the server, cd into the directory, create and activate a python virtual environment with:
 
@@ -237,7 +237,7 @@ For more details, feel free to explore the test_app.py module. Otherwise, go thr
     pytest -s tests/unit/test_app.py
     ```
 
-    We are incorporating the -s flag because it allows pytest to output to the console anything that your tests print, such as print() statements, which is useful for debugging. Normally, pytest captures and suppresses output, but the -s flag disables that capture, allowing you to see all printed output while running tests.
+    We are incorporating the -s flag because it allows pytest to output to the console anything that your tests print, such as print() statements, which is useful for debugging. Normally, pytest captures and suppresses output, but the -s flag disables that, allowing you to see all printed output while running tests.
 
 ## Create Multibranch Pipeline
 
@@ -334,7 +334,119 @@ fi
 
 **The Deploy Stage**
 
-This stage is trickiest, we need to run the commands required to deploy the application so that it is available to the internet.
+This stage is the trickiest, as we need to run the commands required to deploy the application so that it is accessible on the internet. The following command starts the Gunicorn WSGI server to serve your Flask application:
+
+```
+gunicorn -b :5000 -w 4 microblog:app
+```
+
+* **gunicorn:** This is the command to start the Gunicorn (Green Unicorn) WSGI server.
+
+* **-b :5000:** This flag specifies the bind address and port. So, the app will be accessible via http://<server-ip>:5000.
+
+* **-w 4:** This flag sets the number of worker processes. In this case, Gunicorn will spawn 4 worker processes to handle requests. More workers can help handle concurrent requests more efficiently.
+
+* **microblog:app:** This tells Gunicorn which Flask application to serve. It specifies the Python module microblog (the file where your Flask app is defined), and app is the Flask instance in that module. 
+
+If we run this command as-is in our Jenkins file, we will notice that while the application starts, the pipeline never finishes. If we manually cancel the pipeline, the application stops running. We need a way to ensure that the Gunicorn process continues running even after the deploy stage is complete. A good solution is to create a systemd service for our microblog application. systemd is a process manager for Linux operating systems that manages the starting, stopping, and restarting of system services (daemons) via service units. It can control background processes such as web servers—in our case, Gunicorn.
+
+1. Create a Service Unit File:
+
+    ```
+    sudo nano /etc/systemd/system/gunicorn.service
+    ```
+2. Define the unit file configuration. The workingDirectory will be the path to your applications root directory. The ExecStart is the path to your bin directory within your virtual environment that you created and the ExecStart is the command used to start your app. Your configuration file should look something like the following:
+
+    ```
+    [Unit]
+    Description=Gunicorn instance to serve microblog
+    After=network.target
+
+    [Service]
+    User=jenkins
+    Group=jenkins
+    WorkingDirectory=/path/to/your/app
+    Environment="PATH=/path/to/your/venv/bin"
+    ExecStart=/path/to/your/venv/bin/gunicorn -b :5000 -w 4 microblog:app
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+3. After creating or modifying the unit file, reload the systemd manager configuration so it recognizes the new service:
+
+    ```
+    sudo systemctl daemon-reload
+    ```
+4. To enable the service so that it starts automatically on boot, use the following command:
+
+    ```
+    sudo systemctl enable gunicorn.service
+    ```
+5. Start the Service: Start the service using systemctl:
+
+    ```
+    sudo systemctl start gunicorn.service
+    ```
+6. Put the servers public IP address into the browsers address bar to view the App!
+
+    ![Running Application](documents/microblog.png)
+
+Ok so in the preceding step we got to see that our application was running but there is still some additional steps that we need to take to get this to work in jenkins. Right now if the jenkins user tries to execute sudo commands the user will be prompted for a password. To avoid this, we need to add entries for each of the commands we plan to run in the sudoers file. This ensures that Jenkins can run these commands without a password prompt.
+
+To add the necessary permissions, follow these steps:
+
+1. Use visudo to safely edit the sudoers file:
+
+    ```
+    sudo visudo
+    ```
+2. Add entries for each command we want to allow Jenkins to execute without a password:
+
+    ```
+    jenkins ALL=(ALL) NOPASSWD: /bin/systemctl restart gunicorn
+    jenkins ALL=(ALL) NOPASSWD: /bin/systemctl is-active --quiet gunicorn
+    jenkins ALL=(ALL) NOPASSWD: /bin/journalctl -u gunicorn.service
+    ```
+3. Save the file and exit visudo.
+
+The code for this stage of our pipeline will look like the following:
+
+```
+sh '''#!/bin/bash
+# Start Flask application
+source venv/bin/activate
+
+# Restart the Gunicorn service
+sudo /bin/systemctl restart gunicorn
+
+# Check the status of the service
+if sudo /bin/systemctl is-active --quiet gunicorn; then
+    echo "Gunicorn restarted successfully"
+else
+    echo "Failed to restart Gunicorn"
+    # Print logs for debugging
+    sudo /bin/journalctl -u gunicorn.service
+    exit 1
+fi
+'''
+```
+This preceding script activates a Python virtual environment, restarts the Gunicorn service using systemctl, and checks its status. If the restart is successful, it prints a success message. If the restart fails, it prints a failure message, displays the Gunicorn service logs for debugging, and exits with an error.
+
+**Build Our Pipeline**
+
+Now its time to access the jenkins web interface, create a multibranch pipeline and run our first build. We have completed this step in the past two workloads but if you need to refresh your memory you can take a look at workload 2 [here](https://github.com/tjwkura5/retail-banking-app-deployed-elastic-beanstalk-2). If everything has ran correctly then you should be able to see the microblog application running and the following: 
+
+**Successful Build**
+![Successful_Build](documents/successful_build.png)
+
+**Pipeline Graph**
+![pipeline_graph](documents/pipeline_graph.png)
+
+**Dependency Check**
+![dependency_check](documents/dependency_check.png)
+
+**Test Results**
+![test_results](documents/test_results.png)
 
 ## Setting up Prometheus and Grafana
 
