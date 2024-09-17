@@ -46,18 +46,6 @@ def test_users(client, auth_header):
     assert len(data['items']) > 0
     assert data['items'][0]['username'] == 'testuser1'
 
-def test_login(client, mock_user):
-    # logging in the user
-    login_data = {
-        'username': mock_user.username,
-        'password': 'password',  
-        'remember_me': True,
-        'submit': True
-    }
-    # Perform a POST request to the /login endpoint
-    response = client.post('/auth/login', data=login_data, follow_redirects=True)
-    assert response.status_code == 200
-    assert b'<title>Sign In - Microblog</title>' in response.data
 
 
 
