@@ -44,7 +44,7 @@ pipeline {
                 # Check if PID is found and is valid (non-empty)
                 if [[ -n "$pid" && "$pid" -gt 0 ]]; then
                     echo "$pid" > pid.txt
-                    kill "$pid"
+                    kill $(cat pid.txt)
                     echo "Killed gunicorn process with PID $pid"
                 else
                     echo "No gunicorn process found to kill"

@@ -330,7 +330,7 @@ pid=$(pgrep -f "gunicorn")
 # Check if PID is found and is valid (non-empty)
 if [[ -n "$pid" && "$pid" -gt 0 ]]; then
     echo "$pid" > pid.txt
-    kill "$pid"
+    kill $(cat pid.txt)
     echo "Killed gunicorn process with PID $pid"
 else
     echo "No gunicorn process found to kill"
@@ -584,11 +584,11 @@ Wait for the installation to complete. The script will print the URLs for access
 
 **Running Test**
 
-When running the tests, I encountered a ModuleNotFoundError: No module named 'microblog'. This happened because Python couldn't locate the project's modules. To fix this, we need to set an environment variable called PYTHONPATH. By running the command export PYTHONPATH=$(pwd), we tell Python to include the current working directory in its search path for modules. This ensures that when we run scripts or tests, Python can correctly find and import the project's modules.
+When running the tests, I encountered a ModuleNotFoundError: No module named 'microblog'. This happened because Python couldn't locate the project's modules. To fix this, I needed to set an environment variable called PYTHONPATH. By running the command export PYTHONPATH=$(pwd), we tell Python to include the current working directory in its search path for modules. This ensures that when we run scripts or tests, Python can correctly find and import the project's modules.
 
 **Instance Size**
 
-I was encountering an issue where my EC2 instance keeps crashing while the OWASP stage was running. I eventually got tired of this and decided to change my Instance type to a t3.small. This helped prevent my EC2 Instance from crashing but I was still having issues with the OWASP stage. I was seeing the following warnings:
+I was encountering an issue where my EC2 instance kept crashing during the OWASP stage. After repeatedly facing this problem, I decided to change my instance type to a t3.small, which helped prevent the EC2 instance from crashing. However, I was still having issues with the OWASP stage. I noticed the following warnings:
 
 ```
 [INFO] Checking for updates
@@ -603,17 +603,40 @@ I was encountering an issue where my EC2 instance keeps crashing while the OWASP
 
 [WARN] Retrying request /rest/json/cves/2.0?resultsPerPage=2000&startIndex=4000 : 4 time
 ```
-What I learned is that the warnings I was seeing in the OWASP Dependency-Check stage are related to updates from the National Vulnerability Database (NVD), which is a central repository used to pull Common Vulnerabilities and Exposures (CVEs). I did not provide an API key and without an API key, your Dependency-Check tool is being heavily rate-limited by the NVD API, leading to slow or failed requests. The tool retries failed requests multiple times, further delaying the scan. The large number of CVE records (over 260,000) compounds the issue by requiring more API requests, which are repeatedly failing or being throttled. I registered for and obtained a free API key at the [NVD website](https://nvd.nist.gov/developers/request-an-api-key). Once I added the API key to my pipeline script The stage still took forever to run the first time but it ended up being successful. 
+What I learned is that the warnings during the OWASP Dependency-Check stage were related to updates from the National Vulnerability Database (NVD), which is used to pull Common Vulnerabilities and Exposures (CVEs). Since I didn’t provide an API key, the Dependency-Check tool was being heavily rate-limited by the NVD API, causing slow or failed requests. The tool would retry failed requests multiple times, further delaying the scan. The large number of CVE records (over 260,000) worsened the issue by requiring more API requests, which were repeatedly failing or being throttled. 
+
+
+I resolved this by registering for and obtaining a free API key from the [NVD website](https://nvd.nist.gov/developers/request-an-api-key). After adding the API key to my pipeline script, the stage still took a long time to run initially but ultimately completed successfully.
 
 **Deploying The Application**
 
+I initially tried to deploy the application by adding the following command to the deployment stage in my pipeline script:
+
+```
+gunicorn -b :5000 -w 4 microblog:app
+```
+
+This successfully launched the application, but it prevented the pipeline from completing. Additionally, if I terminated the Jenkins pipeline, the application would stop running.
+
+What I learned is that this issue occurs because Gunicorn is being started in the foreground within the Jenkins pipeline. When Gunicorn runs in the foreground, it keeps the shell process open and prevents the pipeline from proceeding to the next step. Additionally, since it's part of the pipeline, when the pipeline is stopped or completed, the Gunicorn process is terminated, which is why the application stops running.
+
+To resolve this issue, I attempted to run Gunicorn as a background process, but this approach didn’t work for me either. The solution was to run Gunicorn as a systemd service. By setting up gunicorn as a systemd service, you can manage the process independently of the pipeline, ensuring it stays active across reboots or Jenkins pipeline restarts, and making the deployment process more stable and production-ready.
+
 **Expose Metrics to Prometheus**
 
-**Killing Gunicorn System Process** 
+This section was less of an issue and more of an oversight on my part. Installing Prometheus and Grafana on the monitoring server was fairly straightforward, as I already had a script to handle this. The real question was which metrics we needed to expose to Prometheus.
+
+I initially attempted to configure the Prometheus Flask exporter within the application, but this was unsuccessful. The Prometheus Flask exporter is a tool designed to expose metrics from a Flask application, allowing Prometheus to scrape and store them. I then installed the Prometheus metrics plugin for Jenkins, but I realized the metrics provided were related to Jenkins itself and not system-level metrics.
+
+I had to think back to an activity that we done in class and remembered that we used prometheus node exporter. This was the right solution because Node Exporter is designed to expose system-level metrics such as CPU, memory, and disk usage, which is what was required for this workload. 
+
+**Killing Gunicorn System Process**
+
+In hindsight, I'm realizing that the "Clean" stage in my pipeline script is no longer needed and doesn't work anyway. Since we are now running Gunicorn as a systemd service, attempting to kill the Gunicorn processes results in an "operation not permitted" error. This is because systemd manages the service, and manually killing the process bypasses systemd's control. It's unnecessary anyway because, in our deploy stage, we run sudo /bin/systemctl restart gunicorn, which ensures the process is properly stopped and restarted. 
 
 ## System Diagram
 
-![sys_diagram](diagram.jpg)
+![sys_diagram](Diagram.jpg)
 
 ## Optimization
 
