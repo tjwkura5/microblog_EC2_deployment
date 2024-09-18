@@ -225,14 +225,20 @@ For more details, feel free to explore the test_app.py module. Otherwise, go thr
     $pip install -r requirements.txt
     $pip install gunicorn pymysql cryptography
     ```
-3. Set the Pythonpath environment variable 
+3. Run the following commands:
+    ```
+    $flask translate compile
+    $flask db upgrade
+    ```
+
+4. Set the Pythonpath environment variable 
     ```
     export PYTHONPATH=$(pwd)
     ```
 
     The export PYTHONPATH=$(pwd) command is necessary to ensure that Python can find our project's modules when running scripts or tests from the command line.
 
-4. From the root directory of the project run the test.
+5. From the root directory of the project run the test.
     ```
     pytest -s tests/unit/test_app.py
     ```
@@ -382,6 +388,7 @@ If we run this command as-is in our Jenkins file, we will notice that while the 
     ```
     sudo systemctl enable gunicorn.service
     ```
+
 5. Start the Service: Start the service using systemctl:
 
     ```
@@ -450,7 +457,134 @@ Now its time to access the jenkins web interface, create a multibranch pipeline 
 
 ## Setting up Prometheus and Grafana
 
+For this stage of our workload we will be installing prometheus and grafana. Prometheus and Grafana are widely used tools for monitoring and visualizing metrics in distributed systems. Prometheus is an open-source monitoring system that collects time-series data, such as CPU usage or request rates. Grafana, an open-source visualization tool, integrates with Prometheus (and other data sources) to create customizable, interactive dashboards for real-time monitoring and analysis. Together, Prometheus and Grafana provide a complete solution for collecting, analyzing, and visualizing system performance, enabling efficient monitoring and alerting for cloud-native applications.
+
+**Installing Prometheus Node Exporter**
+
+If you can recall in the last workload we wrote a bash script for collecting system metrics like CPU, memory and diskspace utilization. In this workload we will be using Prometheus Node Exporter. Prometheus Node exporter is an open-source tool that collects system-level metrics such as CPU, memory, disk usage, and network traffic, which can be exposed to monitoring platforms like Prometheus and CloudWatch.
+
+1. Run the following commands to install Node Exporter:
+
+    ```
+    $wget https://github.com/prometheus/node_exporter/releases/download/v1.6.0/node_exporter-1.6.0.linux-amd64.tar.gz
+    $tar xvfz node_exporter-1.6.0.linux-amd64.tar.gz
+    $sudo mv node_exporter-1.6.0.linux-amd64/node_exporter /usr/local/bin/
+    $rm -rf node_exporter-1.6.0.linux-amd64*
+    ```
+2. Create a systemd service to run Node Exporter:
+
+    ```
+    sudo nano /etc/systemd/system/node_exporter.service
+    ```
+
+    Add the following content:
+
+    ```
+        [Unit]
+        Description=Node Exporter
+        After=network.target
+
+        [Service]
+        User=ubuntu
+        ExecStart=/usr/local/bin/node_exporter
+
+        [Install]
+        WantedBy=default.target
+    ```
+3. Allow inbound traffic on Node Exporter’s default port (9100):
+
+    * In your Security Group for the EC2 instance, add a new inbound rule for TCP port 9100 to allow traffic (customize based on your network setup).
+
+4. Start and enable Node Exporter:
+    ```
+    sudo systemctl daemon-reload
+    sudo systemctl start node_exporter
+    sudo systemctl enable node_exporter
+    ```
+
+**Node Exporter: http://[Your-EC2-Public-IP]:9100**
+![node_exp](documents/node_exporter.png)
+
+**Installing Prometheus and Grafana**
+
+In this phase we are going to be creating another EC2 Instance(t3.micro) called "Monitoring". Install Prometheus and Grafana and configure it to monitor the activity on the server running the application. In your security group for this EC2 Instance we are going to add the following rules:
+
+* Type: Custom TCP, Port Range: 9090, Source: 0.0.0.0 (for Prometheus)
+* Type: Custom TCP, Port Range: 3000, Source: 0.0.0.0 (for Grafana)
+* Type: SSH, Port Range: 22, Source: 0.0.0.0 (if not already added)
+* Type: Custom TCP, Port Range: 9100, Source: 0.0.0.0 - Node Exporter
+
+1. SSH into your EC2 instance
+2. Create a new file named promgraf.sh:
+    ```
+    sudo nano promgraf.sh
+    ```
+3. In the root directory of this project I've already created this script. Copy and paste the contents of that script into this file.
+
+4. Save and exit the file
+
+5. Make the script executable:
+    ```
+    chmod +x promgraf.sh
+    ```
+6. Run the script:
+    ```
+    sudo ./promgraf.sh
+    ```
+Wait for the installation to complete. The script will print the URLs for accessing Prometheus and Grafana. Make sure to check the status of Prometheus and Grafana before proceeding to next step. The status commands are below.
+
+
+**Configure Prometheus to Scrape Metrics from Node Exporter**
+
+1. Update your Prometheus configuration (prometheus.yml) to include the EC2 instance where Node Exporter is running (Jenkins):
+
+    ```
+    scrape_configs:
+    - job_name: 'node_exporter'
+        static_configs:
+            - targets: ['<EC2-INSTANCE-PRIVATE-IP>:9100']
+
+    ```
+2. Restart Prometheus to apply the changes:
+
+    ```
+    sudo systemctl restart prometheus
+    ```
+3. You can now see system metrics (CPU, memory, etc.) from your EC2 instance in Prometheus.
+
+
+**Configuring Grafana** 
+
+1. Access Grafana by opening a browser and navigating to http://<Your-Instance-Public-IP>:3000.
+
+2. Login to Grafana using the default credentials:
+    * Username: admin
+    * Password: admin
+
+3. Add Prometheus as a Data Source
+
+    * In Grafana, click on the Gear icon (⚙) on the left-hand side and select Data Sources.
+    * Click Add data source.
+    * Select Prometheus from the list.
+    * Set the URL to your Prometheus server (e.g., http://<Prometheus-IP>:9090).
+    * Click Save & Test to verify the connection.
+
+4. Import a Pre-Built Node Exporter Dashboard
+
+    Grafana provides pre-built dashboards for monitoring Node Exporter metrics. To use one:
+
+    * In Grafana, click the Plus icon (➕) on the left-hand side and select Import.
+    * In the Import via Grafana.com field, enter the following dashboard ID: 1860 (this is a popular Node Exporter dashboard).
+    * Click Load.
+    * Select your Prometheus data source and click Import.
+
+    ![grafana_dash](documents/node_exporter_dashboard.png)
+
 ## Issues/Troubleshooting
+
+## System Diagram
+
+![sys_diagram](diagram.jpg)
 
 ## Optimization
 
