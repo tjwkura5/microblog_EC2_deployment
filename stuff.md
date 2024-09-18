@@ -80,7 +80,7 @@ Install Python 3.9 and its venv module for virtual environments
     sudo systemctl status jenkins
     ```
 
-If everything looks good then we should be able to move on. If you like to see the final script (jenkins_install.sh) it is located in the root directory of the project. 
+If everything looks good then we should be able to move on. If you want to see the final script (jenkins_install.sh) it is located in the root directory of the project. 
 
 **Configure Application Server:**
 
@@ -211,7 +211,7 @@ This should be good for now. If you take a look at the test_app.py module in the
 
 Using an in-memory database removes the dependency on an actual database instance. Since in-memory databases like SQLite are created and run entirely in memory, they are much faster. Additionally, tests are isolated because each test run gets a fresh, empty database. This ensures that tests don’t interfere with one another.
 
-For more details, feel free to explore the test_app.py module. Otherwise, go through the following step to run the test we created together:
+For more details, feel free to explore the test_app.py module. Otherwise, go through the following steps to run the test we created together:
 
 1. Clone your GH repository to the server, cd into the directory, create and activate a python virtual environment with:
 
@@ -320,7 +320,7 @@ The OWASP Dependency-Check plugin is used for identifying known vulnerabilities 
 
 **The Clean Stage**
 
-So for this stage we just want a script to find and stop a running gunicorn process. This script should first locate the process ID using pgrep, checks if a valid PID is found, save the PID to a file, and then terminate the process. If no gunicorn process is found, just print a corresponding message.
+So for this stage we just want a script to find and stop a running gunicorn process. This script should first locate the process ID(s) using pgrep, checks if a valid PID is found, save the PID to a file, and then terminate the process. If no gunicorn process is found, just print a corresponding message.
 
 ```
 sh '''#!/bin/bash
@@ -348,13 +348,13 @@ gunicorn -b :5000 -w 4 microblog:app
 
 * **gunicorn:** This is the command to start the Gunicorn (Green Unicorn) WSGI server.
 
-* **-b :5000:** This flag specifies the bind address and port. So, the app will be accessible via http://<server-ip>:5000.
+* **-b :5000:** This flag specifies the bind address and port. So, the app will be accessible via http://localhost:5000.
 
 * **-w 4:** This flag sets the number of worker processes. In this case, Gunicorn will spawn 4 worker processes to handle requests. More workers can help handle concurrent requests more efficiently.
 
 * **microblog:app:** This tells Gunicorn which Flask application to serve. It specifies the Python module microblog (the file where your Flask app is defined), and app is the Flask instance in that module. 
 
-If we run this command as-is in our Jenkins file, we will notice that while the application starts, the pipeline never finishes. If we manually cancel the pipeline, the application stops running. We need a way to ensure that the Gunicorn process continues running even after the deploy stage is complete. A good solution is to create a systemd service for our microblog application. systemd is a process manager for Linux operating systems that manages the starting, stopping, and restarting of system services (daemons) via service units. It can control background processes such as web servers—in our case, Gunicorn.
+If we run this command as-is in our Jenkins file, we will notice that while the application starts, the pipeline never finishes. If we manually cancel the pipeline, the application stops running. We need a way to ensure that the Gunicorn process continues running even after the deploy stage is complete. A good solution is to create a systemd service for our microblog application. Systemd is a service manager for Linux operating systems that manages the starting, stopping, and restarting of system services (daemons) via service units. It can control background processes such as web servers—in our case, Gunicorn.
 
 1. Create a Service Unit File:
 
@@ -389,7 +389,7 @@ If we run this command as-is in our Jenkins file, we will notice that while the 
     sudo systemctl enable gunicorn.service
     ```
 
-5. Start the Service: Start the service using systemctl:
+5. Start the service using systemctl:
 
     ```
     sudo systemctl start gunicorn.service
@@ -437,7 +437,7 @@ else
 fi
 '''
 ```
-This preceding script activates a Python virtual environment, restarts the Gunicorn service using systemctl, and checks its status. If the restart is successful, it prints a success message. If the restart fails, it prints a failure message, displays the Gunicorn service logs for debugging, and exits with an error.
+The preceding script activates a Python virtual environment, restarts the Gunicorn service using systemctl, and checks its status. If the restart is successful, it prints a success message. If the restart fails, it prints a failure message, displays the Gunicorn service logs for debugging, and exits with an error.
 
 **Build Our Pipeline**
 
@@ -533,10 +533,14 @@ In this phase we are going to be creating another EC2 Instance(t3.micro) called 
     ```
 Wait for the installation to complete. The script will print the URLs for accessing Prometheus and Grafana. Make sure to check the status of Prometheus and Grafana before proceeding to next step. The status commands are below.
 
+```
+sudo systemctl status prometheus
+sudo systemctl status grafana-server
+```
 
 **Configure Prometheus to Scrape Metrics from Node Exporter**
 
-1. Update your Prometheus configuration (prometheus.yml) to include the EC2 instance where Node Exporter is running (Jenkins):
+1. Update your Prometheus configuration (/opt/prometheus/prometheus.yml) to include the EC2 instance where Node Exporter is running (Jenkins):
 
     ```
     scrape_configs:
@@ -555,7 +559,7 @@ Wait for the installation to complete. The script will print the URLs for access
 
 **Configuring Grafana** 
 
-1. Access Grafana by opening a browser and navigating to http://<Your-Instance-Public-IP>:3000.
+1. Access Grafana by opening a browser and navigating to http://{Your-Instance-Public-IP}:3000.
 
 2. Login to Grafana using the default credentials:
     * Username: admin
@@ -566,7 +570,7 @@ Wait for the installation to complete. The script will print the URLs for access
     * In Grafana, click on the Gear icon (⚙) on the left-hand side and select Data Sources.
     * Click Add data source.
     * Select Prometheus from the list.
-    * Set the URL to your Prometheus server (e.g., http://<Prometheus-IP>:9090).
+    * Set the URL to your Prometheus server (e.g., http://{Prometheus-IP}:9090).
     * Click Save & Test to verify the connection.
 
 4. Import a Pre-Built Node Exporter Dashboard
