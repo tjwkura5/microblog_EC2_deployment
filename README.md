@@ -609,7 +609,7 @@ I was encountering an issue where my EC2 instance kept crashing during the OWASP
 
 [WARN] Retrying request /rest/json/cves/2.0?resultsPerPage=2000&startIndex=4000 : 4 time
 ```
-What I learned is that the warnings during the OWASP Dependency-Check stage were related to updates from the National Vulnerability Database (NVD), which is used to pull Common Vulnerabilities and Exposures (CVEs). Since I didn’t provide an API key, the Dependency-Check tool was being heavily rate-limited by the NVD API, causing slow or failed requests. The tool would retry failed requests multiple times, further delaying the scan. The large number of CVE records (over 260,000) worsened the issue by requiring more API requests, which were repeatedly failing or being throttled. 
+What I learned is that the warnings during this stage were related to updates from the National Vulnerability Database (NVD), which is used to pull Common Vulnerabilities and Exposures (CVEs). Since I didn’t provide an API key, the Dependency-Check tool was being heavily rate-limited by the NVD API, causing slow or failed requests. The tool would retry failed requests multiple times, further delaying the scan. The large number of CVE records (over 260,000) worsened the issue by requiring more API requests, which were repeatedly failing or being throttled. 
 
 
 I resolved this by registering for and obtaining a free API key from the [NVD website](https://nvd.nist.gov/developers/request-an-api-key). After adding the API key to my pipeline script, the stage still took a long time to run initially but ultimately completed successfully.
@@ -646,4 +646,43 @@ In hindsight, I'm realizing that the "Clean" stage in my pipeline script is no l
 
 ## Optimization
 
+**Advantages of provisioning one's own resources over using a managed service like Elastic Beanstalk:**
+
+1. **Control and Flexibility:** Provisioning your own resources gives you complete control over the infrastructure, allowing you to configure each component to meet specific requirements. You’re not limited by the features and restrictions of a managed service.
+
+2. **Cost Efficiency:** Depending on the workload, managing your own infrastructure may prove more cost-effective in the long run. By fine-tuning resources and scaling them efficiently, you avoid over-provisioning and paying for unused capacity, which is a risk with some managed services.
+
+3. **Customization:** With self-provisioned infrastructure, you can tailor each element of your stack to suit your application’s specific needs. This includes selecting the right instance types, managing security groups, and configuring storage. 
+
+**Could the infrastructure created in this workload be considered a "good system"? Why or why not?**
+
+A "good system" typically meets criteria like reliability, scalability, security, and ease of maintenance. In this case, the infrastructure leverages Jenkins for CI/CD, An OWASP Dependency-Check to proactively scan for vulnerabilities in the application’s dependencies, and Prometheus for monitoring, all of which contribute to a well-architected system.
+
+However, some aspects could be further optimized:
+
+* **VPC Configuration:** Currently, the infrastructure is running within the default VPC provided by AWS. While this setup works, it lacks the customization and security features of a custom VPC.
+
+* **Instance Segregation:** Both the Jenkins server and the application are hosted on the same EC2 instance, which can lead to resource contention and potential performance bottlenecks. Running Jenkins on a separate EC2 instance from the application server could improve performance and reliability by offloading CI/CD tasks away from the app’s compute resources.
+
+* **Scalability:** Currently, the infrastructure lacks provisions for scalability. The application and Jenkins are running on a single EC2 instance, with no mechanisms in place to scale resources up or down based on demand.
+
+* **Automation:** Some manual steps, such as deployment or configuration, could be further automated through scripts or Infrastructure as Code (IaC) solutions.
+
+**How would you optimize this infrastructure to address these issues?:**
+
+1. **Infrastructure as Code (IaC):** Introduce a tool like Terraform to automate and version-control the entire infrastructure setup, making it easier to scale and maintain.
+
+2. **Cutting Down on Manual Steps:** Further reduce manual setup by creating deployment scripts for installing packages and configuration.
+
+3. **Jenkins and Application Separation:** Hosting Jenkins and the application on separate instances within our VPC would optimize resource allocation, ensuring that Jenkins’ resource-intensive processes don’t interfere with the application’s performance. This also helps reduce downtime during deployment and builds.
+
+4. **Autoscaling:** Implement autoscaling policies for EC2 instances to dynamically adjust compute resources based on traffic or load.
+
+5. **VPC Configuration:** Set up a custom VPC instead of using the default VPC to provide greater control and security over our infrastructure.
+
 ## Conclusion 
+This project demonstrates the successful integration of various tools and practices to deploy a Flask application to an EC2 instance. The use of Jenkins for continuous integration and deployment (CI/CD) ensures that the application can be automatically tested and deployed with minimal manual intervention. By managing the Gunicorn process with systemd, the application gains increased stability, as it remains active across reboots and ensures proper management of the application server.
+
+Security was also addressed using the OWASP Dependency-Check plugin, which provides proactive risk management by identifying vulnerabilities in the application’s dependencies. Additionally, Prometheus and Node Exporter were used to expose system-level metrics for better monitoring and observability, ensuring that the application's performance can be tracked and optimized over time.
+
+All in all, this project provides a solid foundation for handling real-world workloads in the future. However, there are opportunities for further enhancement. Implementing a custom VPC, separating Jenkins and application servers, and incorporating autoscaling mechanisms would address current limitations in security, performance, and scalability. Additionally, adopting Infrastructure as Code (IaC) tools and reducing manual setup will further streamline management and ensure the system remains adaptable to evolving demands.
