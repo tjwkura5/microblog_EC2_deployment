@@ -582,6 +582,35 @@ Wait for the installation to complete. The script will print the URLs for access
 
 ## Issues/Troubleshooting
 
+**Running Test**
+
+When running the tests, I encountered a ModuleNotFoundError: No module named 'microblog'. This happened because Python couldn't locate the project's modules. To fix this, we need to set an environment variable called PYTHONPATH. By running the command export PYTHONPATH=$(pwd), we tell Python to include the current working directory in its search path for modules. This ensures that when we run scripts or tests, Python can correctly find and import the project's modules.
+
+**Instance Size**
+
+I was encountering an issue where my EC2 instance keeps crashing while the OWASP stage was running. I eventually got tired of this and decided to change my Instance type to a t3.small. This helped prevent my EC2 Instance from crashing but I was still having issues with the OWASP stage. I was seeing the following warnings:
+
+```
+[INFO] Checking for updates
+
+[WARN] An NVD API Key was not provided - it is highly recommended to use an NVD API key as the update can take a VERY long time without an API Key
+
+[INFO] NVD API has 262,868 records in this update
+
+[WARN] Retrying request /rest/json/cves/2.0?resultsPerPage=2000&startIndex=4000 : 2 time
+
+[WARN] Retrying request /rest/json/cves/2.0?resultsPerPage=2000&startIndex=4000 : 3 time
+
+[WARN] Retrying request /rest/json/cves/2.0?resultsPerPage=2000&startIndex=4000 : 4 time
+```
+What I learned is that the warnings I was seeing in the OWASP Dependency-Check stage are related to updates from the National Vulnerability Database (NVD), which is a central repository used to pull Common Vulnerabilities and Exposures (CVEs). I did not provide an API key and without an API key, your Dependency-Check tool is being heavily rate-limited by the NVD API, leading to slow or failed requests. The tool retries failed requests multiple times, further delaying the scan. The large number of CVE records (over 260,000) compounds the issue by requiring more API requests, which are repeatedly failing or being throttled. I registered for and obtained a free API key at the [NVD website](https://nvd.nist.gov/developers/request-an-api-key). Once I added the API key to my pipeline script The stage still took forever to run the first time but it ended up being successful. 
+
+**Deploying The Application**
+
+**Expose Metrics to Prometheus**
+
+**Killing Gunicorn System Process** 
+
 ## System Diagram
 
 ![sys_diagram](diagram.jpg)
